@@ -1,0 +1,22 @@
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const runnerId = params.get('id');
+
+  function sendPing() {
+    navigator.geolocation.getCurrentPosition(pos => {
+      fetch('/api/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          runner_id: runnerId,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy
+        })
+      });
+    }, err => console.error('Geolocation error:', err));
+  }
+
+  sendPing();
+  setInterval(sendPing, 10000); // every 10s
+</script>
