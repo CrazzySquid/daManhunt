@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Admin</title>
+</head>
+<body>
+  <h1>Game Admin</h1>
+
+  <h2>Option A: Use a preset</h2>
+  <select id="presetSelect">
+    <option value="hunterFavored">Hunter Favored</option>
+    <option value="balanced">Balanced</option>
+    <option value="runnerFavored">Runner Favored</option>
+    <option value="debug">Debug (fast, for testing)</option>
+  </select>
+  <button id="startPresetBtn">Start with preset</button>
+
+  <h2>Option B: Custom intervals</h2>
+  <p>Comma-separated minutes, e.g. <code>20,20,10,10,5,5</code></p>
+  <input type="text" id="customInput" placeholder="20,20,10,10,5,5">
+  <button id="startCustomBtn">Start with custom intervals</button>
+
+  <p id="statusMsg"></p>
+
+  <script>
+    const statusEl = document.getElementById('statusMsg');
+
+    async function startGame(body) {
+      try {
+        const res = await fetch('/api/game/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          statusEl.textContent = 'Error: ' + (data.error || 'unknown');
+          return;
+        }
+        statusEl.textContent = `Game started at ${new Date(data.started).toLocaleTimeString()}`;
+      } catch (err) {
+        statusEl.textContent = 'Request failed: ' + err.message;
+      }
+    }
+
+    document.getElementById('startPresetBtn').addEventListener('click', () => {
+      const preset = document.getElementById('presetSelect').value;
+      startGame({ preset });
+    });
+
+    document.getElementById('startCustomBtn').addEventListener('click', () => {
+      const raw = document.getElementById('customInput').value;
+      const customIntervals = raw.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+      if (customIntervals.length === 0) {
+        statusEl.textContent = 'Enter at least one valid number.';
+        return;
+      }
+      startGame({ customIntervals });
+    });
+  </script>
+</body>
+</html>

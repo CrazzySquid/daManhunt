@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hunter View</title>
+</head>
+<body>
+  <h1>Hunter View</h1>
+  <p id="revealInfo">Waiting for first reveal...</p>
+
+  <script>
+    let hunterLat = null;
+    let hunterLng = null;
+    let lastRevealId = null;
+
+    navigator.geolocation.watchPosition(pos => {
+      hunterLat = pos.coords.latitude;
+      hunterLng = pos.coords.longitude;
+    }, err => console.error('Hunter geolocation error:', err));
+
+    function haversineMeters(lat1, lng1, lat2, lng2) {
+      const R = 6371000;
+      const toRad = deg => deg * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function bearingCompass(lat1, lng1, lat2, lng2) {
+      const toRad = deg => deg * Math.PI / 180;
+      const dLng = toRad(lng2 - lng1);
+      const y = Math.sin(dLng) * Math.cos(toRad(lat2));
+      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+        Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
+      const bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+      const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+      return directions[Math.round(bearing / 45) % 8];
+    }
+
+    async function checkForReveal() {
+      try {
+        const res = await fetch('/api/reveals/latest');
+        if (!res.ok) return;
+
+        const reveal = await res.json();
+        if (reveal.id === lastRevealId) return;
+        lastRevealId = reveal.id;
+
+        const mapsLink = `https://www.google.com/maps?q=${reveal.lat},${reveal.lng}`;
+        let html = `<strong>Revealed at ${new Date(reveal.revealed_at).toLocaleTimeString()}</strong><br>`;
+        html += `<a href="${mapsLink}" target="_blank">Open in Google Maps</a><br>`;
+
+        if (hunterLat !== null) {
+          const dist = Math.round(haversineMeters(hunterLat, hunterLng, reveal.lat, reveal.lng));
+          const dir = bearingCompass(hunterLat, hunterLng, reveal.lat, reveal.lng);
+          html += `≈${dist}m ${dir} of you<br>`;
+        }
+
+        if (reveal.nearestStations && reveal.nearestStations.length) {
+          html += 'Nearest stations: ' + reveal.nearestStations
+            .map(s => `${s.name} (${Math.round(s.distance)}m)`)
+            .join(', ');
+        }
+
+        document.getElementById('revealInfo').innerHTML = html;
+      } catch (err) {
+        console.error('Error checking reveal:', err);
+      }
+    }
+
+    checkForReveal();
+    setInterval(checkForReveal, 5000);
+  </script>
+</body>
+</html>

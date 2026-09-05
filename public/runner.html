@@ -1,22 +1,68 @@
-<script>
-  const params = new URLSearchParams(window.location.search);
-  const runnerId = params.get('id');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Runner Tracker</title>
+</head>
+<body>
+  <h1>Runner Tracker</h1>
+  <p style="color: red; font-weight: bold;">⚠️ Keep this tab open and screen on!</p>
+  <p id="status">Initializing location updates...</p>
 
-  function sendPing() {
-    navigator.geolocation.getCurrentPosition(pos => {
-      fetch('/api/ping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          runner_id: runnerId,
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy
-        })
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const runnerId = 'runners';
+    const statusEl = document.getElementById('status');
+
+    function updateStatus(message) {
+      statusEl.textContent = message;
+    }
+
+    let wakeLock = null;
+
+    async function requestWakeLock() {
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => console.log('Wake lock released'));
+      } catch (err) {
+        console.error('Wake lock failed:', err);
+      }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        requestWakeLock();
+      }
+    });
+
+    requestWakeLock();
+
+    function sendPing() {
+      navigator.geolocation.getCurrentPosition(pos => {
+        fetch('/api/ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            runner_id: runnerId,
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy
+          })
+        }).then(() => {
+          updateStatus(`Last ping sent at ${new Date().toLocaleTimeString()}`);
+        }).catch(err => {
+          console.error('Ping error:', err);
+          updateStatus('Failed to send ping.');
+        });
+      }, err => {
+        console.error('Geolocation error:', err);
+        updateStatus('Geolocation error: ' + err.message);
       });
-    }, err => console.error('Geolocation error:', err));
-  }
+    }
 
-  sendPing();
-  setInterval(sendPing, 10000); // every 10s
-</script>
+    sendPing();
+    setInterval(sendPing, 10000);
+  </script>
+</body>
+</html>

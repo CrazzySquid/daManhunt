@@ -33,6 +33,9 @@ function calculateRevealTimestamps(revealTimings) {
     return revealTimestamps;
 }
 
+const { notifyHunters } = require('./telegram');
+const { nearestStations } = require('./stations');
+
 function sendReveal() {
     const targetTime = Date.now() - 2 * 60 * 1000;
 
@@ -47,12 +50,21 @@ function sendReveal() {
         return;
     }
 
+    const snapped = snapToGrid(closestPing.lat, closestPing.lng, 50);
+    const stations = nearestStations(snapped.lat, snapped.lng, 2);
+
     db.prepare(`
         INSERT INTO reveals (runner_id, revealed_at, lat, lng, accuracy)
         VALUES (?, ?, ?, ?, ?)
-    `).run(closestPing.runner_id, Date.now(), closestPing.lat, closestPing.lng, closestPing.accuracy);
+    `).run(closestPing.runner_id, Date.now(), snapped.lat, snapped.lng, closestPing.accuracy);
 
-    console.log('Revealed:', closestPing);
+    const mapsLink = `https://www.google.com/maps?q=${snapped.lat},${snapped.lng}`;
+    const stationText = stations.map(s => `${s.name} (${Math.round(s.distance)}m)`).join(', ');
+
+    const message = `📍 <b>New location revealed!</b>\n${mapsLink}\nNearest stations: ${stationText}`;
+    notifyHunters(message);
+
+    console.log('Revealed:', snapped);
 }
 
 module.exports = { startGame };
