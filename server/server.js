@@ -64,5 +64,26 @@ app.get('/api/reveals/latest', (req, res) => {
   res.json({ ...latest, nearestStations: stations });
 });
 
+const { pickRandomObjectives } = require('./objectives');
+
+app.post('/api/objectives/assign', (req, res) => {
+  db.exec('DELETE FROM objectives'); // clear any previous game's objectives
+  const picked = pickRandomObjectives(3);
+  picked.forEach(loc => {
+    db.prepare('INSERT INTO objectives (name, lat, lng) VALUES (?, ?, ?)').run(loc.name, loc.lat, loc.lng);
+  });
+  res.json({ ok: true, objectives: picked });
+});
+
+app.get('/api/objectives', (req, res) => {
+  const objectives = db.prepare('SELECT * FROM objectives').all();
+  res.json(objectives);
+});
+
+app.post('/api/objectives/:id/visit', (req, res) => {
+  db.prepare('UPDATE objectives SET visited = 1 WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

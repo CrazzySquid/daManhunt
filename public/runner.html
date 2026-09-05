@@ -64,5 +64,33 @@
     sendPing();
     setInterval(sendPing, 10000);
   </script>
+
+  <h2>Your Objectives</h2>
+<ul id="objectivesList"></ul>
+
+<script>
+  async function loadObjectives() {
+    const res = await fetch('/api/objectives');
+    const objectives = await res.json();
+    const list = document.getElementById('objectivesList');
+    list.innerHTML = '';
+    objectives.forEach(o => {
+      const li = document.createElement('li');
+      li.textContent = `${o.name} `;
+      if (o.visited) {
+        li.textContent += '✅';
+      } else {
+        const btn = document.createElement('button');
+        btn.textContent = "I'm here";
+        btn.onclick = () => {
+          fetch(`/api/objectives/${o.id}/visit`, { method: 'POST' }).then(loadObjectives);
+        };
+        li.appendChild(btn);
+      }
+      list.appendChild(li);
+    });
+  }
+  loadObjectives();
+</script>
 </body>
 </html>
