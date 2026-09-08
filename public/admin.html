@@ -7,59 +7,116 @@
   <title>DaManhunt | Start Selection</title>
 </head>
 <body>
-  <h1>Game Admin</h1>
+  <div class="layout">
+  <div class="menu">
+    <h1>Game Admin</h1>
+  </div>
 
-  <h2>Option A: Use a preset</h2>
-  <select id="presetSelect">
-    <option value="hunterFavored">Hunter Favored</option>
-    <option value="balanced">Balanced</option>
-    <option value="runnerFavored">Runner Favored</option>
-    <option value="debug">Debug (fast, for testing)</option>
-  </select>
-  <button id="startPresetBtn">Start with preset</button>
+  <form id="gameForm" class="adminForm">
+    <label for="presetSelect">Preset</label>
+    <select id="presetSelect">
+      <option value="balanced">Balanced</option>
+      <option value="hunterFavored">Hunter Favored</option>
+      <option value="runnerFavored">Runner Favored</option>
+      <option value="debug">Debug</option>
+      <option value="custom">Custom</option>
+    </select>
 
-  <h2>Option B: Custom intervals</h2>
-  <p>Comma-separated minutes, e.g. <code>20,20,10,10,5,5</code></p>
-  <input type="text" id="customInput" placeholder="20,20,10,10,5,5">
-  <button id="startCustomBtn">Start with custom intervals</button>
+    <label for="headStartInput">Head start (minutes)</label>
+    <input type="number" id="headStartInput" step="0.1" min="0" required>
 
-  <p id="statusMsg"></p>
+    <label for="roundDurationInput">Round duration (minutes)</label>
+    <input type="number" id="roundDurationInput" step="0.1" min="0" required>
 
-  <script>
+    <label for="objectiveCountInput">Number of objectives</label>
+    <input type="number" id="objectiveCountInput" min="1" required>
+
+    <label for="revealIntervalsInput">Reveal schedule (minutes, comma-separated)</label>
+    <input type="text" id="revealIntervalsInput" placeholder="20,20,10,10,10,5,5" required>
+    <p id="scheduleWarning" class="warningText"></p>
+
+    <button type="submit" class="primaryButton">Start Game</button>
+  </form>
+
+  <p id="statusMsg" class="statusText"></p>
+</div>
+
+<script>
+  let presets = {};
+
+  async function loadPresets() {
+    const res = await fetch('/api/presets');
+    presets = await res.json();
+    applyPreset('balanced');
+  }
+
+  function applyPreset(name) {
+    if (name === 'custom') return; // leave fields as they are for manual entry
+    const p = presets[name];
+    if (!p) return;
+    document.getElementById('headStartInput').value = p.headStartMinutes;
+    document.getElementById('roundDurationInput').value = p.roundDurationMinutes;
+    document.getElementById('objectiveCountInput').value = p.objectiveCount;
+    document.getElementById('revealIntervalsInput').value = p.revealIntervals.join(',');
+  }
+
+  document.getElementById('presetSelect').addEventListener('change', (e) => {
+    applyPreset(e.target.value);
+  });
+
+  function checkScheduleFits() {
+    const roundDuration = parseFloat(document.getElementById('roundDurationInput').value);
+    const intervals = document.getElementById('revealIntervalsInput').value
+      .split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+    const total = intervals.reduce((a, b) => a + b, 0);
+    const warningEl = document.getElementById('scheduleWarning');
+
+    if (!roundDuration || intervals.length === 0) {
+      warningEl.textContent = '';
+      return;
+    }
+    if (total > roundDuration) {
+      warningEl.textContent = `⚠️ Schedule totals ${total} min, longer than the ${roundDuration} min round.`;
+    } else {
+      warningEl.textContent = `Schedule totals ${total} of ${roundDuration} min.`;
+    }
+  }
+
+  document.getElementById('revealIntervalsInput').addEventListener('input', checkScheduleFits);
+  document.getElementById('roundDurationInput').addEventListener('input', checkScheduleFits);
+
+  document.getElementById('gameForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
     const statusEl = document.getElementById('statusMsg');
 
-    async function startGame(body) {
-      try {
-        const res = await fetch('/api/game/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          statusEl.textContent = 'Error: ' + (data.error || 'unknown');
-          return;
-        }
-        statusEl.textContent = `Game started at ${new Date(data.started).toLocaleTimeString()}`;
-      } catch (err) {
-        statusEl.textContent = 'Request failed: ' + err.message;
-      }
-    }
+    const revealIntervals = document.getElementById('revealIntervalsInput').value
+      .split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
 
-    document.getElementById('startPresetBtn').addEventListener('click', () => {
-      const preset = document.getElementById('presetSelect').value;
-      startGame({ preset });
-    });
+    const payload = {
+      headStartMinutes: parseFloat(document.getElementById('headStartInput').value),
+      roundDurationMinutes: parseFloat(document.getElementById('roundDurationInput').value),
+      objectiveCount: parseInt(document.getElementById('objectiveCountInput').value),
+      revealIntervals
+    };
 
-    document.getElementById('startCustomBtn').addEventListener('click', () => {
-      const raw = document.getElementById('customInput').value;
-      const customIntervals = raw.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
-      if (customIntervals.length === 0) {
-        statusEl.textContent = 'Enter at least one valid number.';
+    try {
+      const res = await fetch('/api/game/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        statusEl.textContent = 'Error: ' + (data.error || 'unknown');
         return;
       }
-      startGame({ customIntervals });
-    });
-  </script>
+      statusEl.textContent = `Game started at ${new Date(data.started).toLocaleTimeString()}`;
+    } catch (err) {
+      statusEl.textContent = 'Request failed: ' + err.message;
+    }
+  });
+
+  loadPresets();
+</script>
 </body>
 </html>

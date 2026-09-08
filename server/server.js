@@ -7,7 +7,6 @@ const path = require('path');
 const db = require('./db');
 const { startGame } = require('./game');
 const { nearestStations } = require('./stations');
-const presets = require('./config/timingPresets');
 
 const app = express();
 app.use(cors());
@@ -94,3 +93,6 @@ process.on('unhandledRejection', (err) => {
 process.on('uncaughtException', (err) => {
   console.error('Uncaught exception (server stayed alive):', err);
 });
+
+const presets = require('./data/presets'); // matching your rename
+app.get('/api/presets', (req, res) => res.json(presets));
