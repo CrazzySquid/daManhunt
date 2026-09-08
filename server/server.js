@@ -5,7 +5,7 @@ const cors = require('cors');
 const path = require('path');
 
 const db = require('./db');
-const { startGame } = require('./game');
+const { startGame, getStatus, isGameRunning, stopGame } = require('./game');
 const { nearestStations } = require('./stations');
 
 const app = express();
@@ -18,6 +18,10 @@ app.get('/api/health', (req, res) => {
 });
 
 app.post('/api/ping', (req, res) => {
+  if (!isGameRunning()) {
+    return res.status(403).json({ error: 'No game currently running' });
+  }
+
   const { runner_id, lat, lng, accuracy } = req.body;
 
   if (!runner_id || typeof lat !== 'number' || typeof lng !== 'number') {
@@ -35,18 +39,13 @@ app.post('/api/ping', (req, res) => {
 });
 
 app.post('/api/game/start', (req, res) => {
-  const { preset, customIntervals } = req.body;
+  const { headStartMinutes, roundDurationMinutes, objectiveCount, revealIntervals } = req.body;
 
-  let intervals;
-  if (customIntervals) {
-    intervals = customIntervals;
-  } else if (presets[preset]) {
-    intervals = presets[preset];
-  } else {
-    return res.status(400).json({ error: 'Provide a valid preset or customIntervals array' });
+  if (!headStartMinutes || !roundDurationMinutes || !objectiveCount || !revealIntervals?.length) {
+    return res.status(400).json({ error: 'Missing required game config fields' });
   }
 
-  startGame(intervals);
+  startGame({ headStartMinutes, roundDurationMinutes, objectiveCount, revealIntervals });
   res.json({ ok: true, started: Date.now() });
 });
 
@@ -65,23 +64,9 @@ app.get('/api/reveals/latest', (req, res) => {
 
 const { pickRandomObjectives } = require('./objectives');
 
-app.post('/api/objectives/assign', (req, res) => {
-  db.exec('DELETE FROM objectives'); // clear any previous game's objectives
-  const picked = pickRandomObjectives(3);
-  picked.forEach(loc => {
-    db.prepare('INSERT INTO objectives (name, lat, lng) VALUES (?, ?, ?)').run(loc.name, loc.lat, loc.lng);
-  });
-  res.json({ ok: true, objectives: picked });
-});
-
 app.get('/api/objectives', (req, res) => {
   const objectives = db.prepare('SELECT * FROM objectives').all();
   res.json(objectives);
-});
-
-app.post('/api/objectives/:id/visit', (req, res) => {
-  db.prepare('UPDATE objectives SET visited = 1 WHERE id = ?').run(req.params.id);
-  res.json({ ok: true });
 });
 
 const PORT = process.env.PORT || 3000;
@@ -94,5 +79,12 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught exception (server stayed alive):', err);
 });
 
-const presets = require('./data/presets'); // matching your rename
+const presets = require('./data/presets');
 app.get('/api/presets', (req, res) => res.json(presets));
+
+app.get('/api/game/status', (req, res) => res.json(getStatus()));
+
+app.post('/api/game/stop', (req, res) => {
+  const stopped = stopGame();
+  res.json({ ok: true, stopped });
+});
