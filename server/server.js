@@ -87,3 +87,10 @@ app.post('/api/objectives/:id/visit', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection (server stayed alive):', err);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception (server stayed alive):', err);
+});
