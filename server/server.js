@@ -88,3 +88,8 @@ app.post('/api/game/stop', (req, res) => {
   const stopped = stopGame();
   res.json({ ok: true, stopped });
 });
+
+app.post('/api/objectives/:id/visit', (req, res) => {
+  db.prepare('UPDATE objectives SET visited = 1 WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});

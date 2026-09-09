@@ -7,27 +7,55 @@
   <title>DaManhunt | Runner</title>
 </head>
 <body>
-  <h1>Runner Tracker</h1>
-  <p style="color: red; font-weight: bold;">⚠️ Keep this tab open and screen on!</p>
-  <p id="status">Initializing location updates...</p>
+  <div class="cornerNote" id="pingNote">Last ping: —</div>
+  <div class="cornerNote" id="wakeNote" style="top: 2.2rem;">🔒 Checking...</div>
+
+  <div class="layout">
+    <div class="menu">
+      <h1 class="highlightHead">Runner</h1>
+    </div>
+
+    <div class="statusCard">
+      <h2 id="gameStateText">Loading game state...</h2>
+    </div>
+
+    <div class="statusCard" id="revealCard" style="display: none;">
+      <h3><span class="highlightText">Last Reveal</span></h3>
+      <p id="revealInfo">No reveal yet.</p>
+    </div>
+
+    <div class="statusCard" id="objectivesCard" style="display: none;">
+      <h3><span class="highlightText">Objectives</span></h3>
+      <ul id="objectivesList" class="objectiveList"></ul>
+    </div>
+
+    <div class="statusCard">
+      <h3><span class="highlightText">Map</span></h3>
+      <p class="mapPlaceholder">🗺️ Map view coming soon.</p>
+    </div>
+  </div>
 
   <script>
-    const params = new URLSearchParams(window.location.search);
     const runnerId = 'runners';
-    const statusEl = document.getElementById('status');
+    const pingNote = document.getElementById('pingNote');
+    const wakeNote = document.getElementById('wakeNote');
+    let lastPingTime = null;
 
-    function updateStatus(message) {
-      statusEl.textContent = message;
-    }
-
+    // ---- Wake lock ----
     let wakeLock = null;
 
     async function requestWakeLock() {
       try {
         wakeLock = await navigator.wakeLock.request('screen');
-        wakeLock.addEventListener('release', () => console.log('Wake lock released'));
+        wakeNote.textContent = '🔒 Screen staying awake';
+        wakeNote.classList.remove('warningNote');
+        wakeLock.addEventListener('release', () => {
+          wakeNote.textContent = '⚠️ Wake lock inactive';
+          wakeNote.classList.add('warningNote');
+        });
       } catch (err) {
-        console.error('Wake lock failed:', err);
+        wakeNote.textContent = '⚠️ Wake lock unavailable';
+        wakeNote.classList.add('warningNote');
       }
     }
 
@@ -39,70 +67,142 @@
 
     requestWakeLock();
 
+    // ---- Pings ----
+    function updatePingNote(success) {
+      const now = new Date();
+      if (success) {
+        lastPingTime = now;
+        pingNote.textContent = `Last ping: ${now.toLocaleTimeString()}`;
+        pingNote.classList.remove('warningNote');
+      }
+      checkPingStaleness();
+    }
+
+    function checkPingStaleness() {
+      if (!lastPingTime) return;
+      const ageSeconds = (Date.now() - lastPingTime.getTime()) / 1000;
+      if (ageSeconds > 60) {
+        pingNote.classList.add('warningNote');
+      }
+    }
+
     function sendPing() {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          fetch('/api/ping', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              runner_id: runnerId,
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-              accuracy: pos.coords.accuracy
-            })
-          }).then(async res => {
-            if (res.status === 403) {
-              updateStatus('⚠️ No game running — ping not sent.');
-              return;
-            }
-            if (!res.ok) {
-              updateStatus('Ping failed (server error).');
-              return;
-            }
-            updateStatus(`Last ping sent at ${new Date().toLocaleTimeString()}`);
-          }).catch(err => {
-            console.error('Ping error:', err);
-            updateStatus('Failed to send ping.');
-          });
-        },
-        err => {
-          console.error('Geolocation failed:', err);
-          updateStatus('Location unavailable.');
-s        }
-      );
+      navigator.geolocation.getCurrentPosition(pos => {
+        fetch('/api/ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            runner_id: runnerId,
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy
+          })
+        }).then(res => updatePingNote(res.ok))
+          .catch(() => updatePingNote(false));
+      }, () => updatePingNote(false));
     }
 
     sendPing();
     setInterval(sendPing, 10000);
-  </script>
+    setInterval(checkPingStaleness, 5000);
 
-  <h2>Your Objectives</h2>
-<ul id="objectivesList"></ul>
+    // ---- Game state ----
+    let currentState = 'idle';
 
-<script>
-  async function loadObjectives() {
-    const res = await fetch('/api/objectives');
-    const objectives = await res.json();
-    const list = document.getElementById('objectivesList');
-    list.innerHTML = '';
-    objectives.forEach(o => {
-      const li = document.createElement('li');
-      li.textContent = `${o.name} `;
-      if (o.visited) {
-        li.textContent += '✅';
-      } else {
-        const btn = document.createElement('button');
-        btn.textContent = "I'm here";
-        btn.onclick = () => {
-          fetch(`/api/objectives/${o.id}/visit`, { method: 'POST' }).then(loadObjectives);
-        };
-        li.appendChild(btn);
+    async function refreshGameState() {
+      try {
+        const res = await fetch('/api/game/status');
+        const status = await res.json();
+        currentState = status.state;
+        const now = Date.now();
+        const stateEl = document.getElementById('gameStateText');
+
+        if (status.state === 'idle') {
+          stateEl.textContent = 'No game running';
+        } else if (status.state === 'headstart') {
+          const remaining = Math.max(0, Math.round((status.headStartEnd - now) / 1000));
+          stateEl.textContent = `Head start — ${formatTime(remaining)} remaining`;
+        } else if (status.state === 'active') {
+          const remaining = Math.max(0, Math.round((status.roundEnd - now) / 1000));
+          stateEl.textContent = `Round active — ${formatTime(remaining)} remaining`;
+        } else if (status.state === 'ended') {
+          stateEl.textContent = `Game over — ${status.winner} win!`;
+        }
+
+        const showExtras = status.state === 'active' || status.state === 'ended';
+        document.getElementById('objectivesCard').style.display = showExtras ? 'block' : 'none';
+        document.getElementById('revealCard').style.display = showExtras ? 'block' : 'none';
+        if (showExtras) {
+          loadObjectives();
+          loadLastReveal();
+        }
+      } catch (err) {
+        console.error('Game status error:', err);
       }
-      list.appendChild(li);
-    });
-  }
-  loadObjectives();
-</script>
+    }
+
+    function formatTime(totalSeconds) {
+      const m = Math.floor(totalSeconds / 60);
+      const s = totalSeconds % 60;
+      return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    refreshGameState();
+    setInterval(refreshGameState, 1000);
+
+    // ---- Objectives ----
+    async function loadObjectives() {
+      const res = await fetch('/api/objectives');
+      const objectives = await res.json();
+      const list = document.getElementById('objectivesList');
+      list.innerHTML = '';
+
+      objectives.forEach(o => {
+        const li = document.createElement('li');
+        li.className = 'objectiveItem';
+        li.textContent = o.name + ' ';
+
+        if (o.visited) {
+          li.innerHTML += `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>`;
+        } else {
+          const btn = document.createElement('button');
+          btn.textContent = 'There!';
+          btn.className = 'secondaryButton';
+          btn.onclick = () => confirmVisit(o.id);
+          li.appendChild(btn);
+        }
+        list.appendChild(li);
+      });
+    }
+
+    function confirmVisit(id) {
+      const sure = confirm(
+        "Are you sure you want to mark this as visited?\n\n" +
+        "Make sure you've sent a picture first.\n" +
+        "Usually if you're actually there, this happens automatically — " +
+        "you shouldn't need to tap this."
+      );
+      if (!sure) return;
+      fetch(`/api/objectives/${id}/visit`, { method: 'POST' }).then(loadObjectives);
+    }
+
+    // ---- Last reveal (own history) ----
+    async function loadLastReveal() {
+      try {
+        const res = await fetch('/api/reveals/latest');
+        if (!res.ok) return;
+        const reveal = await res.json();
+        const mapsLink = `https://www.google.com/maps?q=${reveal.lat},${reveal.lng}`;
+        document.getElementById('revealInfo').innerHTML =
+          `You were revealed at ${new Date(reveal.revealed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}<br>` +
+          `<a href="${mapsLink}" target="_blank">View on map</a>`;
+      } catch (err) {
+        console.error('Reveal fetch error:', err);
+      }
+    }
+  </script>
 </body>
 </html>

@@ -30,6 +30,30 @@ body {
     font-size: 1.5rem;
 }
 
+.highlightText, .highlightHead {
+    position: relative;
+    display: inline-block;
+}
+
+.highlightText::after, .highlightHead::after {
+    content: "";
+    position: absolute;
+    left: -0.1em;
+    right: -0.1em;
+    bottom: 0.05em;
+    height: 0.4em;
+    opacity: 0.55;
+    z-index: -1;
+}
+
+.highlightText::after {
+    background-color: var(--accent);
+}
+
+.highlightHead::after {
+    background-color: var(--primary);
+}
+
 .layout {
     display: flex;
     flex-direction: column;
@@ -64,21 +88,29 @@ body {
         box-shadow: 0 2px 6px rgba(8, 4, 15, 0.15);
         transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
+}
 
-    > a:hover {
+.primaryButton, .secondaryButton {
+    font-family: var(--font), sans-serif;
+
+    border-radius: 15px;
+    box-shadow: 0 2px 6px rgba(8, 4, 15, 0.15);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.primaryButton:hover, .secondaryButton:hover {
         transform: translateY(-3px) scale(1.03);
         box-shadow: 0 6px 14px rgba(8, 4, 15, 0.25);
-    }
 }
 
 .primaryButton {
     background: var(--primary);
-    color: var(--background);
+    color: var(--background);    
 }
 
 .secondaryButton {
     background: var(--secondary);
-    color: var(--text)
+    color: var(--text);
 }
 
 #rules {
@@ -151,11 +183,56 @@ body {
     }
 }
 
-.highlight[data-astro-cid-j7pv25f6] {
-  font-weight: 400;
-  z-index: 5;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+.cornerNote {
+    position: fixed;
+    top: 0.5rem;
+    right: 0.5rem;
+    font-size: 0.8rem;
+    background: var(--background);
+    color: var(--text);
+    padding: 0.3rem 0.6rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(8, 4, 15, 0.15);
+    z-index: 10;
+}
+
+.warningNote {
+    color: var(--secondary);
+    font-weight: bold;
+}
+
+.statusCard {
+    width: 100%;
+    max-width: 25rem;
+    margin: 1rem;
+    padding: 1.2rem;
+    border-radius: 15px;
+    box-shadow: 0 2px 6px rgba(8, 4, 15, 0.15);
+    text-align: center;
+}
+
+.objectiveList {
+    list-style: none;
+    padding: 0;
+    text-align: left;
+}
+
+.objectiveItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(8, 4, 15, 0.1);
+}
+
+.mapPlaceholder {
+    opacity: 0.6;
+    font-style: italic;
+}
+
+@media (max-width: 500px) {
+    .statusCard {
+        margin: 0.5rem;
+        padding: 1rem;
+    }
 }
