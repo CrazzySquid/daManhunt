@@ -40,30 +40,37 @@
     requestWakeLock();
 
     function sendPing() {
-      navigator.geolocation.getCurrentPosition(pos => {
-        fetch('/api/ping', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    runner_id: runnerId,
-    lat: pos.coords.latitude,
-    lng: pos.coords.longitude,
-    accuracy: pos.coords.accuracy
-  })
-}).then(async res => {
-  if (res.status === 403) {
-    updateStatus('⚠️ No game running — ping not sent.');
-    return;
-  }
-  if (!res.ok) {
-    updateStatus('Ping failed (server error).');
-    return;
-  }
-  updateStatus(`Last ping sent at ${new Date().toLocaleTimeString()}`);
-}).catch(err => {
-  console.error('Ping error:', err);
-  updateStatus('Failed to send ping.');
-});
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          fetch('/api/ping', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              runner_id: runnerId,
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              accuracy: pos.coords.accuracy
+            })
+          }).then(async res => {
+            if (res.status === 403) {
+              updateStatus('⚠️ No game running — ping not sent.');
+              return;
+            }
+            if (!res.ok) {
+              updateStatus('Ping failed (server error).');
+              return;
+            }
+            updateStatus(`Last ping sent at ${new Date().toLocaleTimeString()}`);
+          }).catch(err => {
+            console.error('Ping error:', err);
+            updateStatus('Failed to send ping.');
+          });
+        },
+        err => {
+          console.error('Geolocation failed:', err);
+          updateStatus('Location unavailable.');
+s        }
+      );
     }
 
     sendPing();

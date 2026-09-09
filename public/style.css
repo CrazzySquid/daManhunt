@@ -150,3 +150,12 @@ body {
         padding: 1rem;
     }
 }
+
+.highlight[data-astro-cid-j7pv25f6] {
+  font-weight: 400;
+  z-index: 5;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
