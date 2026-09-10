@@ -33,4 +33,15 @@ db.exec(`
   )
 `);
 
+function tryAddColumn(table, colDef) {
+  try {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${colDef}`);
+  } catch (e) {
+    // column already exists, ignore
+  }
+}
+tryAddColumn('runner_locations', 'game_id TEXT');
+tryAddColumn('reveals', 'game_id TEXT');
+tryAddColumn('objectives', 'game_id TEXT');
+
 module.exports = db;

@@ -38,18 +38,19 @@ function snapToGrid(lat, lng, gridMeters = GRID_SIZE_METERS) {
   };
 }
 
+const crypto = require('crypto');
+let currentGameId = null;
+
 function startGame(config) {
   if (intervalId) clearInterval(intervalId);
 
-  db.exec('DELETE FROM objectives');
-  db.exec('DELETE FROM reveals');
-  db.exec('DELETE FROM runner_locations');
+  currentGameId = crypto.randomUUID();
 
   const picked = pickRandomObjectives(config.objectiveCount);
   picked.forEach(loc => {
-    db.prepare('INSERT INTO objectives (name, lat, lng) VALUES (?, ?, ?)').run(loc.name, loc.lat, loc.lng);
+    db.prepare('INSERT INTO objectives (game_id, name, lat, lng) VALUES (?, ?, ?, ?)').run(currentGameId, loc.name, loc.lat, loc.lng);
   });
-  objectives = db.prepare('SELECT * FROM objectives').all();
+  objectives = db.prepare('SELECT * FROM objectives WHERE game_id = ?').all(currentGameId);
 
   state = 'headstart';
   const now = Date.now();
@@ -102,9 +103,10 @@ function sendReveal() {
 
   const closestPing = db.prepare(`
     SELECT * FROM runner_locations
+    WHERE game_id = ?
     ORDER BY ABS(timestamp - ?)
     LIMIT 1
-  `).get(targetTime);
+  `).get(currentGameId, targetTime);
 
   if (!closestPing) {
     console.log('No location data available yet for this reveal.');
@@ -114,9 +116,9 @@ function sendReveal() {
   const snapped = snapToGrid(closestPing.lat, closestPing.lng);
 
   db.prepare(`
-    INSERT INTO reveals (runner_id, revealed_at, lat, lng, accuracy)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(closestPing.runner_id, Date.now(), snapped.lat, snapped.lng, closestPing.accuracy);
+   INSERT INTO reveals (game_id, runner_id, revealed_at, lat, lng, accuracy)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(currentGameId, closestPing.runner_id, Date.now(), snapped.lat, snapped.lng, closestPing.accuracy);
 
   const stations = nearestStations(snapped.lat, snapped.lng, 2);
   const mapsLink = `https://www.google.com/maps?q=${snapped.lat},${snapped.lng}`;
@@ -129,8 +131,26 @@ function sendReveal() {
   console.log('Revealed:', snapped, `(${ageMinutes} min old)`);
 }
 
+function markObjectiveVisited(id) {
+  const obj = objectives.find(o => o.id === id);
+  if (!obj || obj.visited) return false;
+
+  db.prepare('UPDATE objectives SET visited = 1 WHERE id = ?').run(id);
+  obj.visited = 1;
+  console.log(`Objective visited: ${obj.name}`);
+
+  const remaining = objectives.filter(x => !x.visited);
+  if (remaining.length === 1) {
+    const last = remaining[0];
+    notifyHunters(`🔥 FINALE! Only one objective left: ${last.name} — https://www.google.com/maps?q=${last.lat},${last.lng}`);
+  } else if (remaining.length === 0) {
+    endGame('runners', 'All objectives visited.');
+  }
+  return true;
+}
+
 function checkObjectiveArrivals() {
-  const latest = db.prepare('SELECT * FROM runner_locations ORDER BY timestamp DESC LIMIT 1').get();
+  const latest = db.prepare('SELECT * FROM runner_locations WHERE game_id = ? ORDER BY timestamp DESC LIMIT 1').get(currentGameId);
   if (!latest) return;
 
   const unvisited = objectives.filter(o => !o.visited);
@@ -139,17 +159,7 @@ function checkObjectiveArrivals() {
   for (const o of unvisited) {
     const dist = haversineMeters(latest.lat, latest.lng, o.lat, o.lng);
     if (dist <= OBJECTIVE_RADIUS_METERS) {
-      db.prepare('UPDATE objectives SET visited = 1 WHERE id = ?').run(o.id);
-      o.visited = 1;
-      console.log(`Objective visited: ${o.name}`);
-
-      const remaining = objectives.filter(x => !x.visited);
-      if (remaining.length === 1) {
-        const last = remaining[0];
-        notifyHunters(`🔥 FINALE! Only one objective left: ${last.name} — https://www.google.com/maps?q=${last.lat},${last.lng}`);
-      } else if (remaining.length === 0) {
-        endGame('runners', 'All objectives visited.');
-      }
+      markObjectiveVisited(o.id);
     }
   }
 }
@@ -162,10 +172,6 @@ function endGame(who, reason) {
   console.log(`Game ended. Winner: ${who}. Reason: ${reason}`);
 }
 
-function getStatus() {
-  return { state, headStartEnd, roundEnd, winner, objectives };
-}
-
 function isGameRunning() {
   return state === 'headstart' || state === 'active';
 }
@@ -176,4 +182,12 @@ function stopGame() {
   return true;
 }
 
-module.exports = { startGame, getStatus, isGameRunning, stopGame };
+function getStatus() {
+  const unvisited = objectives.filter(o => !o.visited);
+  const finaleObjective = unvisited.length === 1 ? unvisited[0] : null;
+  return { state, headStartEnd, roundEnd, winner, finaleObjective };
+}
+
+function getCurrentGameId() { return currentGameId; }
+
+module.exports = { startGame, getStatus, isGameRunning, stopGame, markObjectiveVisited, getCurrentGameId };

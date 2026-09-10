@@ -7,13 +7,36 @@
   <title>DaManhunt | Hunter</title>
 </head>
 <body>
-  <h1>Hunter View</h1>
-  <p id="revealInfo">Waiting for first reveal...</p>
+  <div class="layout">
+    <div class="menu">
+      <h1>Hunter</h1>
+    </div>
+
+    <div class="statusCard">
+      <h2 id="gameStateText">Loading game state...</h2>
+    </div>
+
+    <div class="statusCard" id="finaleCard" style="display: none;">
+      <h3><span class="highlightHead">Finale!</span></h3>
+      <p id="finaleInfo"></p>
+    </div>
+
+    <div class="statusCard" id="revealCard" style="display: none;">
+      <h3><span class="highlightText">Latest Reveal</span></h3>
+      <p id="revealInfo">Waiting for first reveal...</p>
+    </div>
+
+    <div class="statusCard" id="historyCard" style="display: none;">
+      <h3><span class="highlightText">Past Reveals</span></h3>
+      <ul id="historyList" class="objectiveList"></ul>
+    </div>
+  </div>
 
   <script>
     let hunterLat = null;
     let hunterLng = null;
     let lastRevealId = null;
+    let lastRevealData = null;
 
     navigator.geolocation.watchPosition(pos => {
       hunterLat = pos.coords.latitude;
@@ -25,8 +48,7 @@
       const toRad = deg => deg * Math.PI / 180;
       const dLat = toRad(lat2 - lat1);
       const dLng = toRad(lng2 - lng1);
-      const a = Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
@@ -34,46 +56,125 @@
       const toRad = deg => deg * Math.PI / 180;
       const dLng = toRad(lng2 - lng1);
       const y = Math.sin(dLng) * Math.cos(toRad(lat2));
-      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-        Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
+      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
       const bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
       const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
       return directions[Math.round(bearing / 45) % 8];
+    }
+
+    function shortTime(ms) {
+      return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function renderReveal() {
+      if (!lastRevealData) return;
+      const reveal = lastRevealData;
+      const mapsLink = `https://www.google.com/maps?q=${reveal.lat},${reveal.lng}`;
+      let html = `<strong>Revealed at ${shortTime(reveal.revealed_at)}</strong><br>`;
+      html += `<a href="${mapsLink}" target="_blank">Open in Google Maps</a><br>`;
+
+      if (hunterLat !== null) {
+        const dist = Math.round(haversineMeters(hunterLat, hunterLng, reveal.lat, reveal.lng));
+        const dir = bearingCompass(hunterLat, hunterLng, reveal.lat, reveal.lng);
+        html += `≈${dist}m ${dir} of you<br>`;
+      }
+
+      if (reveal.nearestStations && reveal.nearestStations.length) {
+        html += 'Nearest stations: ' + reveal.nearestStations.map(s => `${s.name} (${Math.round(s.distance)}m)`).join(', ');
+      }
+
+      document.getElementById('revealInfo').innerHTML = html;
     }
 
     async function checkForReveal() {
       try {
         const res = await fetch('/api/reveals/latest');
         if (!res.ok) return;
-
         const reveal = await res.json();
-        if (reveal.id === lastRevealId) return;
-        lastRevealId = reveal.id;
+        document.getElementById('revealCard').style.display = 'block';
 
-        const mapsLink = `https://www.google.com/maps?q=${reveal.lat},${reveal.lng}`;
-        let html = `<strong>Revealed at ${new Date(reveal.revealed_at).toLocaleTimeString()}</strong><br>`;
-        html += `<a href="${mapsLink}" target="_blank">Open in Google Maps</a><br>`;
-
-        if (hunterLat !== null) {
-          const dist = Math.round(haversineMeters(hunterLat, hunterLng, reveal.lat, reveal.lng));
-          const dir = bearingCompass(hunterLat, hunterLng, reveal.lat, reveal.lng);
-          html += `≈${dist}m ${dir} of you<br>`;
+        if (reveal.id !== lastRevealId) {
+          lastRevealId = reveal.id;
+          lastRevealData = reveal;
+          loadHistory();
         }
-
-        if (reveal.nearestStations && reveal.nearestStations.length) {
-          html += 'Nearest stations: ' + reveal.nearestStations
-            .map(s => `${s.name} (${Math.round(s.distance)}m)`)
-            .join(', ');
-        }
-
-        document.getElementById('revealInfo').innerHTML = html;
+        renderReveal();
       } catch (err) {
         console.error('Error checking reveal:', err);
       }
     }
 
+    async function loadHistory() {
+      try {
+        const res = await fetch('/api/reveals/history');
+        const reveals = await res.json();
+        if (reveals.length <= 1) return;
+
+        const historyCard = document.getElementById('historyCard');
+        const list = document.getElementById('historyList');
+        list.innerHTML = '';
+
+        reveals.slice(1).forEach(r => {
+          const li = document.createElement('li');
+          li.className = 'objectiveItem';
+          const mapsLink = `https://www.google.com/maps?q=${r.lat},${r.lng}`;
+          li.innerHTML = `${shortTime(r.revealed_at)} — <a href="${mapsLink}" target="_blank">map</a>`;
+          list.appendChild(li);
+        });
+
+        historyCard.style.display = 'block';
+      } catch (err) {
+        console.error('History fetch error:', err);
+      }
+    }
+
     checkForReveal();
     setInterval(checkForReveal, 5000);
+    setInterval(renderReveal, 3000);
+
+    // ---- Game state + finale ----
+    async function refreshGameState() {
+      try {
+        const res = await fetch('/api/game/status');
+        const status = await res.json();
+        const now = Date.now();
+        const stateEl = document.getElementById('gameStateText');
+
+        if (status.state === 'idle') {
+          stateEl.textContent = 'No game running';
+        } else if (status.state === 'headstart') {
+          const remaining = Math.max(0, Math.round((status.headStartEnd - now) / 1000));
+          stateEl.textContent = `Head start — ${formatTime(remaining)} remaining`;
+        } else if (status.state === 'active') {
+          const remaining = Math.max(0, Math.round((status.roundEnd - now) / 1000));
+          stateEl.textContent = `Round active — ${formatTime(remaining)} remaining`;
+        } else if (status.state === 'ended') {
+          stateEl.textContent = `Game over — ${status.winner} win!`;
+        }
+
+        const finaleCard = document.getElementById('finaleCard');
+        if (status.finaleObjective) {
+          const o = status.finaleObjective;
+          const mapsLink = `https://www.google.com/maps?q=${o.lat},${o.lng}`;
+          document.getElementById('finaleInfo').innerHTML =
+            `Only one objective left: <strong>${o.name}</strong><br><a href="${mapsLink}" target="_blank">Open in Google Maps</a>`;
+          finaleCard.style.display = 'block';
+        } else {
+          finaleCard.style.display = 'none';
+        }
+      } catch (err) {
+        console.error('Game status error:', err);
+      }
+    }
+
+    function formatTime(totalSeconds) {
+      const m = Math.floor(totalSeconds / 60);
+      const s = totalSeconds % 60;
+      return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    refreshGameState();
+    setInterval(refreshGameState, 1000);
   </script>
 </body>
 </html>
