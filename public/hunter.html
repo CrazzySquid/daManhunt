@@ -66,11 +66,19 @@
       return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
+    function relativeTime(ms) {
+      const minutes = Math.round((Date.now() - ms) / 60000);
+      if (minutes < 1) return 'just now';
+      return `${minutes} min ago`;
+    }
+
     function renderReveal() {
       if (!lastRevealData) return;
       const reveal = lastRevealData;
       const mapsLink = `https://www.google.com/maps?q=${reveal.lat},${reveal.lng}`;
-      let html = `<strong>Revealed at ${shortTime(reveal.revealed_at)}</strong><br>`;
+      let html = `<strong>Revealed at ${shortTime(reveal.revealed_at)}</strong><br>
+      (${relativeTime(reveal.revealed_at)})<br><br>`;
+
       html += `<a href="${mapsLink}" target="_blank">Open in Google Maps</a><br>`;
 
       if (hunterLat !== null) {

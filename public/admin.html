@@ -12,6 +12,10 @@
     <h1 class="highlightHead">Game Admin</h1>
   </div>
 
+  <div class="statusCard">
+    <h2 id="gameStateText">Loading game state...</h2>
+  </div>
+
   <form id="gameForm" class="adminForm">
     <label for="presetSelect">Preset</label>
     <select id="presetSelect">
@@ -41,6 +45,27 @@
 </div>
 
 <script>
+  async function refreshGameState() {
+    try {
+      const res = await fetch('/api/game/status');
+      const status = await res.json();
+      const now = Date.now();
+      const stateEl = document.getElementById('gameStateText');
+      if (status.state === 'idle') stateEl.textContent = 'No game running';
+      else if (status.state === 'headstart') stateEl.textContent = `Head start — ${formatTime(Math.max(0, Math.round((status.headStartEnd - now) / 1000)))} remaining`;
+      else if (status.state === 'active') stateEl.textContent = `Round active — ${formatTime(Math.max(0, Math.round((status.roundEnd - now) / 1000)))} remaining`;
+      else if (status.state === 'ended') stateEl.textContent = `Game over — ${status.winner} win!`;
+    } catch (err) { console.error(err); }
+  }
+  
+  function formatTime(totalSeconds) {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+  refreshGameState();
+  setInterval(refreshGameState, 1000);
+
   let presets = {};
 
   async function loadPresets() {
@@ -64,22 +89,24 @@
   });
 
   function checkScheduleFits() {
-    const roundDuration = parseFloat(document.getElementById('roundDurationInput').value);
-    const intervals = document.getElementById('revealIntervalsInput').value
-      .split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
-    const total = intervals.reduce((a, b) => a + b, 0);
-    const warningEl = document.getElementById('scheduleWarning');
+  const roundDuration = parseFloat(document.getElementById('roundDurationInput').value);
+  const intervals = document.getElementById('revealIntervalsInput').value
+    .split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+  const total = intervals.reduce((a, b) => a + b, 0);
+  const warningEl = document.getElementById('scheduleWarning');
 
-    if (!roundDuration || intervals.length === 0) {
-      warningEl.textContent = '';
-      return;
-    }
-    if (total > roundDuration) {
-      warningEl.textContent = `⚠️ Schedule totals ${total} min, longer than the ${roundDuration} min round.`;
-    } else {
-      warningEl.textContent = `Schedule totals ${total} of ${roundDuration} min.`;
-    }
+  if (!roundDuration || intervals.length === 0) {
+    warningEl.textContent = '';
+    return;
   }
+
+  const diff = roundDuration - total;
+  if (diff < 0) {
+    warningEl.textContent = `⚠️ Schedule is ${Math.abs(diff).toFixed(1)} min too long.`;
+  } else {
+    warningEl.textContent = `✅ Fits, ${diff.toFixed(1)} min to spare.`;
+  }
+}
 
   document.getElementById('revealIntervalsInput').addEventListener('input', checkScheduleFits);
   document.getElementById('roundDurationInput').addEventListener('input', checkScheduleFits);

@@ -163,16 +163,15 @@
         li.textContent = o.name + ' ';
 
         if (o.visited) {
-          li.innerHTML += `
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>`;
-        } else {
+          li.innerHTML += `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+        } else if (currentState === 'active') {
           const btn = document.createElement('button');
           btn.textContent = 'There!';
           btn.className = 'secondaryButton';
           btn.onclick = () => confirmVisit(o.id);
           li.appendChild(btn);
+        } else {
+          li.innerHTML += `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--secondary)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
         }
         list.appendChild(li);
       });
@@ -190,6 +189,12 @@
     }
 
     // ---- Last reveal (own history) ----
+    function relativeTime(ms) {
+      const minutes = Math.round((Date.now() - ms) / 60000);
+      if (minutes < 1) return 'just now';
+      return `${minutes} min ago`;
+    }
+
     async function loadLastReveal() {
       try {
         const res = await fetch('/api/reveals/latest');
@@ -197,7 +202,7 @@
         const reveal = await res.json();
         const mapsLink = `https://www.google.com/maps?q=${reveal.lat},${reveal.lng}`;
         document.getElementById('revealInfo').innerHTML =
-          `You were revealed at ${new Date(reveal.revealed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}<br>` +
+          `You were revealed at ${new Date(reveal.revealed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}<br>(${relativeTime(reveal.revealed_at)})<br><br>` + 
           `<a href="${mapsLink}" target="_blank">View on map</a>`;
       } catch (err) {
         console.error('Reveal fetch error:', err);
