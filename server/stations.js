@@ -4,13 +4,19 @@ const path = require('path');
 
 const raw = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/stations.json')));
 
+const seenNames = new Set();
 const stations = raw.features
   .filter(f => f.properties.name)
   .map(f => ({
     name: f.properties.name,
     lat: f.geometry.coordinates[1],
     lng: f.geometry.coordinates[0]
-  }));
+  }))
+  .filter(s => {
+    if (seenNames.has(s.name)) return false;
+    seenNames.add(s.name);
+    return true;
+  });
 
 function haversineMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000;

@@ -36,6 +36,10 @@ app.post('/api/game/start', (req, res) => {
   res.json({ ok: true, started: Date.now() });
 });
 
+app.post('/api/game/stop', (req, res) => {
+  const stopped = stopGame();
+  res.json({ ok: true, stopped });
+});
 
 app.post('/api/ping', (req, res) => {
   if (!isGameRunning()) return res.status(403).json({ error: 'No game currently running' });

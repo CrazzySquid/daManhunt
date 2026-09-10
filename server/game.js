@@ -79,6 +79,7 @@ function tick() {
 
       notifyHunters(`🎯 Head start over! The hunt is on. Round ends at ${new Date(roundEnd).toLocaleTimeString()}.`);
       console.log('Head start ended, round active until', new Date(roundEnd).toLocaleTimeString());
+      sendReveal();
     }
     return;
   }
@@ -132,6 +133,10 @@ function sendReveal() {
 }
 
 function markObjectiveVisited(id) {
+  if (state !== 'active') {
+    return false;
+  }
+
   const obj = objectives.find(o => o.id === id);
   if (!obj || obj.visited) return false;
 
@@ -143,7 +148,7 @@ function markObjectiveVisited(id) {
   if (remaining.length === 1) {
     const last = remaining[0];
     notifyHunters(`🔥 FINALE! Only one objective left: ${last.name} — https://www.google.com/maps?q=${last.lat},${last.lng}`);
-  } else if (remaining.length === 0) {
+  } else if (remaining.length === 0 && (state !== 'idle' && state !== 'ended')) {
     endGame('runners', 'All objectives visited.');
   }
   return true;
@@ -177,7 +182,7 @@ function isGameRunning() {
 }
 
 function stopGame() {
-  if (state === 'idle' || state === 'ended') return false;
+  if (state === 'idle' && state === 'ended') return false;
   endGame('none', 'Manually stopped by admin.');
   return true;
 }
