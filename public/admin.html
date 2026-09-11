@@ -1,148 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
   <title>DaManhunt | Game Config</title>
 </head>
+
 <body>
   <div class="layout">
-  <div class="menu">
-    <h1 class="highlightHead">Game Admin</h1>
+    <div class="menu">
+      <h1 class="highlightHead">Game Admin</h1>
+    </div>
+
+    <div class="statusCard">
+      <h2 id="gameStateText">Loading game state...</h2>
+    </div>
+
+    <form id="gameForm" class="adminForm">
+      <label for="presetSelect">Preset</label>
+      <select id="presetSelect">
+        <option value="balanced">Balanced</option>
+        <option value="hunterFavored">Hunter Favored</option>
+        <option value="runnerFavored">Runner Favored</option>
+        <option value="debug">Debug</option>
+      </select>
+
+      <label for="headStartInput">Head start (minutes)</label>
+      <input type="number" id="headStartInput" step="0.1" min="0" required>
+
+      <label for="roundDurationInput">Round duration (minutes)</label>
+      <input type="number" id="roundDurationInput" step="0.1" min="0" required>
+
+      <label for="objectiveCountInput">Number of objectives</label>
+      <input type="number" id="objectiveCountInput" min="1" required>
+
+      <label for="revealIntervalsInput">Reveal schedule (minutes, comma-separated)</label>
+      <input type="text" id="revealIntervalsInput" placeholder="20,20,10,10,10,5,5" required>
+      <p id="scheduleWarning" class="warningText"></p>
+
+      <button type="submit" class="primaryButton">Start Game</button>
+    </form>
+
+    <p id="statusMsg" class="statusText"></p>
   </div>
 
-  <div class="statusCard">
-    <h2 id="gameStateText">Loading game state...</h2>
-  </div>
-
-  <form id="gameForm" class="adminForm">
-    <label for="presetSelect">Preset</label>
-    <select id="presetSelect">
-      <option value="balanced">Balanced</option>
-      <option value="hunterFavored">Hunter Favored</option>
-      <option value="runnerFavored">Runner Favored</option>
-      <option value="debug">Debug</option>
-    </select>
-
-    <label for="headStartInput">Head start (minutes)</label>
-    <input type="number" id="headStartInput" step="0.1" min="0" required>
-
-    <label for="roundDurationInput">Round duration (minutes)</label>
-    <input type="number" id="roundDurationInput" step="0.1" min="0" required>
-
-    <label for="objectiveCountInput">Number of objectives</label>
-    <input type="number" id="objectiveCountInput" min="1" required>
-
-    <label for="revealIntervalsInput">Reveal schedule (minutes, comma-separated)</label>
-    <input type="text" id="revealIntervalsInput" placeholder="20,20,10,10,10,5,5" required>
-    <p id="scheduleWarning" class="warningText"></p>
-
-    <button onclick="window.location.href='index.html'" type="submit" class="primaryButton">Start Game</button>
-  </form>
-
-  <p id="statusMsg" class="statusText"></p>
-</div>
-
-<script>
-  async function refreshGameState() {
-    try {
-      const res = await fetch('/api/game/status');
-      const status = await res.json();
-      const now = Date.now();
-      const stateEl = document.getElementById('gameStateText');
-      if (status.state === 'idle') stateEl.textContent = 'No game running';
-      else if (status.state === 'headstart') stateEl.textContent = `Head start — ${formatTime(Math.max(0, Math.round((status.headStartEnd - now) / 1000)))} remaining`;
-      else if (status.state === 'active') stateEl.textContent = `Round active — ${formatTime(Math.max(0, Math.round((status.roundEnd - now) / 1000)))} remaining`;
-      else if (status.state === 'ended') stateEl.textContent = `Game over — ${status.winner} win!`;
-    } catch (err) { console.error(err); }
-  }
-  
-  function formatTime(totalSeconds) {
-    const m = Math.floor(totalSeconds / 60);
-    const s = totalSeconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  }
-  refreshGameState();
-  setInterval(refreshGameState, 1000);
-
-  let presets = {};
-
-  async function loadPresets() {
-    const res = await fetch('/api/presets');
-    presets = await res.json();
-    applyPreset('balanced');
-  }
-
-  function applyPreset(name) {
-    if (name === 'custom') return; // leave fields as they are for manual entry
-    const p = presets[name];
-    if (!p) return;
-    document.getElementById('headStartInput').value = p.headStartMinutes;
-    document.getElementById('roundDurationInput').value = p.roundDurationMinutes;
-    document.getElementById('objectiveCountInput').value = p.objectiveCount;
-    document.getElementById('revealIntervalsInput').value = p.revealIntervals.join(',');
-  }
-
-  document.getElementById('presetSelect').addEventListener('change', (e) => {
-    applyPreset(e.target.value);
-  });
-
-  function checkScheduleFits() {
-  const roundDuration = parseFloat(document.getElementById('roundDurationInput').value);
-  const intervals = document.getElementById('revealIntervalsInput').value
-    .split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
-  const total = intervals.reduce((a, b) => a + b, 0);
-  const warningEl = document.getElementById('scheduleWarning');
-
-  if (!roundDuration || intervals.length === 0) {
-    warningEl.textContent = '';
-    return;
-  }
-
-  const diff = roundDuration - total;
-  if (diff < 0) {
-    warningEl.textContent = `⚠️ Schedule is ${Math.abs(diff).toFixed(1)} min too long.`;
-  } else {
-    warningEl.textContent = `✅ Fits, ${diff.toFixed(1)} min to spare.`;
-  }
-}
-
-  document.getElementById('revealIntervalsInput').addEventListener('input', checkScheduleFits);
-  document.getElementById('roundDurationInput').addEventListener('input', checkScheduleFits);
-
-  document.getElementById('gameForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const statusEl = document.getElementById('statusMsg');
-
-    const revealIntervals = document.getElementById('revealIntervalsInput').value
-      .split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
-
-    const payload = {
-      headStartMinutes: parseFloat(document.getElementById('headStartInput').value),
-      roundDurationMinutes: parseFloat(document.getElementById('roundDurationInput').value),
-      objectiveCount: parseInt(document.getElementById('objectiveCountInput').value),
-      revealIntervals
-    };
-
-    try {
-      const res = await fetch('/api/game/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        statusEl.textContent = 'Error: ' + (data.error || 'unknown');
-        return;
-      }
-      statusEl.textContent = `Game started at ${new Date(data.started).toLocaleTimeString()}`;
-    } catch (err) {
-      statusEl.textContent = 'Request failed: ' + err.message;
-    }
-  });
-
-  loadPresets();
-</script>
+  <script src="js/common.js"></script>
+  <script src="js/admin.js"></script>
 </body>
+
 </html>
