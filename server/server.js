@@ -11,6 +11,8 @@ const { pickRandomObjectives } = require('./objectives');
 const { getCurrentGameId } = require('./game');
 const { markObjectiveVisited } = require('./game');
 const presets = require('./data/presets');
+const { requestCatch, confirmCatch } = require('./game');
+
 
 const app = express();
 app.use(cors());
@@ -39,6 +41,17 @@ app.post('/api/game/start', (req, res) => {
 app.post('/api/game/stop', (req, res) => {
   const stopped = stopGame();
   res.json({ ok: true, stopped });
+});
+
+app.post('/api/game/catch', (req, res) => {
+  const success = requestCatch();
+  res.json({ ok: success });
+});
+
+app.post('/api/game/catch/confirm', (req, res) => {
+  const { wasCaught } = req.body;
+  const success = confirmCatch(!!wasCaught);
+  res.json({ ok: success });
 });
 
 app.post('/api/ping', (req, res) => {

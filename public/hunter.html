@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
   <title>DaManhunt | Hunter</title>
 </head>
+
 <body>
   <div class="layout">
     <div class="menu">
@@ -19,6 +21,10 @@
     <div class="statusCard" id="finaleCard" style="display: none;">
       <h3><span class="highlightHead">Finale!</span></h3>
       <p id="finaleInfo"></p>
+    </div>
+
+    <div class="statusCard">
+      <button id="catchBtn" class="primaryButton">Target betouched!</button>
     </div>
 
     <div class="statusCard" id="revealCard" style="display: none;">
@@ -181,8 +187,22 @@
       return `${m}:${s.toString().padStart(2, '0')}`;
     }
 
+    document.getElementById('catchBtn').addEventListener('click', () => {
+      const sure = confirm(
+        "Are you sure? This will ask the runners to confirm they were caught."
+      );
+      if (!sure) return;
+
+      fetch('/api/game/catch', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+          if (!data.ok) alert('Could not send catch request (is a round actually active?)');
+        });
+    });
+
     refreshGameState();
     setInterval(refreshGameState, 1000);
   </script>
 </body>
+
 </html>

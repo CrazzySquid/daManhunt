@@ -83,7 +83,6 @@ body {
         width: 10rem;
 
         margin: 1rem;
-        padding: 0.1rem;
         border-radius: 15px;
 
         box-shadow: 0 2px 6px rgba(8, 4, 15, 0.15);
@@ -93,7 +92,9 @@ body {
 
 .primaryButton, .secondaryButton {
     font-family: var(--font), sans-serif;
-
+    
+    padding: 0.2rem;
+    border: none;
     border-radius: 15px;
     box-shadow: 0 2px 6px rgba(8, 4, 15, 0.15);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -236,4 +237,8 @@ body {
         margin: 0.5rem;
         padding: 1rem;
     }
+}
+
+#catchBtn {
+    font-size: var(--font);
 }

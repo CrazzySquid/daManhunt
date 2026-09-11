@@ -17,6 +17,7 @@ let intervalId = null;
 let objectives = [];
 let winner = null;
 let pendingConfig = null;
+let catchPending = false;
 
 function haversineMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000;
@@ -60,6 +61,7 @@ function startGame(config) {
   currentRevealIndex = 0;
   winner = null;
   pendingConfig = config;
+  catchPending = false;
 
   intervalId = setInterval(tick, 2000);
 
@@ -177,6 +179,23 @@ function endGame(who, reason) {
   console.log(`Game ended. Winner: ${who}. Reason: ${reason}`);
 }
 
+function requestCatch() {
+  if (state !== 'active') return false;
+  catchPending = true;
+  return true;
+}
+
+function confirmCatch(wasCaught) {
+  if (!catchPending) return false;
+  catchPending = false;
+  if (wasCaught) {
+    endGame('hunters', 'Runners caught (confirmed by runner).');
+  } else {
+    notifyHunters('❌ Catch denied — runners say they were not actually caught. Keep looking!');
+  }
+  return true;
+}
+
 function isGameRunning() {
   return state === 'headstart' || state === 'active';
 }
@@ -190,9 +209,9 @@ function stopGame() {
 function getStatus() {
   const unvisited = objectives.filter(o => !o.visited);
   const finaleObjective = unvisited.length === 1 ? unvisited[0] : null;
-  return { state, headStartEnd, roundEnd, winner, finaleObjective };
+  return { state, headStartEnd, roundEnd, winner, finaleObjective, catchPending };
 }
 
 function getCurrentGameId() { return currentGameId; }
 
-module.exports = { startGame, getStatus, isGameRunning, stopGame, markObjectiveVisited, getCurrentGameId };
+module.exports = { startGame, getStatus, isGameRunning, stopGame, markObjectiveVisited, getCurrentGameId, requestCatch, confirmCatch };

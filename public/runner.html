@@ -131,6 +131,16 @@
           stateEl.textContent = `Game over — ${status.winner} win!`;
         }
 
+        if (status.catchPending && !window.catchPromptShown) {
+          window.catchPromptShown = true;
+          const confirmed = confirm("A hunter says you've been caught. Is that true?");
+          fetch('/api/game/catch/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wasCaught: confirmed })
+          }).then(() => { window.catchPromptShown = false; });
+        }
+
         const showExtras = status.state === 'active' || status.state === 'ended';
         document.getElementById('objectivesCard').style.display = showExtras ? 'block' : 'none';
         document.getElementById('revealCard').style.display = showExtras ? 'block' : 'none';
