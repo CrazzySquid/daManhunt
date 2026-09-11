@@ -128,7 +128,7 @@ function sendReveal() {
   const stationText = stations.map(s => `${s.name} (${Math.round(s.distance)}m)`).join(', ');
   const ageMinutes = Math.round((Date.now() - closestPing.timestamp) / 60000);
 
-  const message = `📍 New location revealed!\n${mapsLink}\nPing from ${ageMinutes} min ago\nNearest stations: ${stationText}`;
+  const message = `📍 New location revealed!\n${mapsLink}\nNearest stations: ${stationText}`;
   notifyHunters(message);
 
   console.log('Revealed:', snapped, `(${ageMinutes} min old)`);
