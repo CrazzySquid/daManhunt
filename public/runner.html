@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
   <title>DaManhunt | Runner</title>
 </head>
+
 <body>
   <div class="cornerNote" id="pingNote">Last ping: —</div>
   <div class="cornerNote" id="wakeNote" style="top: 2.2rem;">🔒 Checking...</div>
@@ -157,10 +159,16 @@
       const list = document.getElementById('objectivesList');
       list.innerHTML = '';
 
+      // runner.html — inside loadObjectives(), right after setting li.textContent
       objectives.forEach(o => {
         const li = document.createElement('li');
         li.className = 'objectiveItem';
-        li.textContent = o.name + ' ';
+
+        const stationText = o.nearestStations && o.nearestStations.length
+          ? o.nearestStations.map(s => s.name).join(', ')
+          : '';
+
+        li.innerHTML = `<div>${o.name}<br><small style="opacity:0.7;">${stationText}</small></div>`;
 
         if (o.visited) {
           li.innerHTML += `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
@@ -202,7 +210,7 @@
         const reveal = await res.json();
         const mapsLink = `https://www.google.com/maps?q=${reveal.lat},${reveal.lng}`;
         document.getElementById('revealInfo').innerHTML =
-          `You were revealed at ${new Date(reveal.revealed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}<br>(${relativeTime(reveal.revealed_at)})<br><br>` + 
+          `You were revealed at ${new Date(reveal.revealed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}<br>(${relativeTime(reveal.revealed_at)})<br><br>` +
           `<a href="${mapsLink}" target="_blank">View on map</a>`;
       } catch (err) {
         console.error('Reveal fetch error:', err);
@@ -210,4 +218,5 @@
     }
   </script>
 </body>
+
 </html>

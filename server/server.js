@@ -69,7 +69,11 @@ app.get('/api/reveals/history', (req, res) => {
 
 app.get('/api/objectives', (req, res) => {
   const objectives = db.prepare('SELECT * FROM objectives WHERE game_id = ?').all(getCurrentGameId());
-  res.json(objectives);
+  const withStations = objectives.map(o => ({
+    ...o,
+    nearestStations: nearestStations(o.lat, o.lng, 2)
+  }));
+  res.json(withStations);
 });
 
 app.get('/api/presets', (req, res) => res.json(presets));
