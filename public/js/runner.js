@@ -100,6 +100,14 @@ async function refreshGameState() {
             }).then(() => { window.catchPromptShown = false; });
         }
 
+        if (status.finaleObjective && !window.finaleNoticeShown) {
+            window.finaleNoticeShown = true;
+            notify(`Finale! Only one objective left — get there before hunters find it!`);
+        }
+        if (!status.finaleObjective) {
+            window.finaleNoticeShown = false; // reset for next game
+        }
+
         const showExtras = status.state === 'active' || status.state === 'ended';
         document.getElementById('objectivesCard').style.display = showExtras ? 'block' : 'none';
         document.getElementById('revealCard').style.display = showExtras ? 'block' : 'none';

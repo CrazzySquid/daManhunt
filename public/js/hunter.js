@@ -60,7 +60,8 @@ async function loadHistory() {
             const li = document.createElement('li');
             li.className = 'objectiveItem';
             const mapsLink = `https://www.google.com/maps?q=${r.lat},${r.lng}`;
-            li.innerHTML = `${shortTime(r.revealed_at)} — <a href="${mapsLink}" target="_blank">map</a>`;
+            const stationName = r.nearestStations && r.nearestStations[0] ? r.nearestStations[0].name : '';
+            li.innerHTML = `${shortTime(r.revealed_at)} — ${stationName ? stationName : ''} — <a href="${mapsLink}" target="_blank">map</a>`;
             list.appendChild(li);
         });
 

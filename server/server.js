@@ -77,7 +77,11 @@ app.get('/api/reveals/latest', (req, res) => {
 
 app.get('/api/reveals/history', (req, res) => {
   const all = db.prepare('SELECT * FROM reveals WHERE game_id = ? ORDER BY revealed_at DESC LIMIT 20').all(getCurrentGameId());
-  res.json(all);
+  const withStations = all.map(r => ({
+    ...r,
+    nearestStations: nearestStations(r.lat, r.lng, 2)
+  }));
+  res.json(withStations);
 });
 
 app.get('/api/objectives', (req, res) => {
@@ -104,4 +108,17 @@ process.on('unhandledRejection', (err) => {
 });
 process.on('uncaughtException', (err) => {
   console.error('Uncaught exception (server stayed alive):', err);
+});
+
+
+// server.js — add temporarily, remove before sharing this deployment publicly long-term
+app.get('/api/debug/near-stephansdom', (req, res) => {
+  const rows = db.prepare(`
+    SELECT id, lat, lng, accuracy, timestamp, game_id
+    FROM runner_locations
+    WHERE lat BETWEEN 48.205 AND 48.212
+      AND lng BETWEEN 16.369 AND 16.378
+    ORDER BY timestamp DESC
+  `).all();
+  res.json(rows);
 });
