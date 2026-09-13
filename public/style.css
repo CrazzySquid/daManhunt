@@ -223,8 +223,13 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 0;
+    padding: 0.5rem 0.1rem;
     border-bottom: 1px solid rgba(8, 4, 15, 0.1);
+}
+
+.objectiveReveal {
+    background: rgba(220, 173, 99, 0.7);
+    border-radius: 8px;
 }
 
 .mapPlaceholder {

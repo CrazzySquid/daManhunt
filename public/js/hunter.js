@@ -60,12 +60,13 @@ async function loadHistory() {
 
         reveals.slice(1).forEach(r => {
             const li = document.createElement('li');
-            li.className = 'objectiveItem';
+            li.className = r.objective_name ? 'objectiveItem objectiveReveal' : 'objectiveItem';
+
             const mapsLink = `https://www.google.com/maps?q=${r.lat},${r.lng}`;
             const label = r.objective_name
                 ? ` ${r.objective_name}`
                 : (r.nearestStations && r.nearestStations[0] ? r.nearestStations[0].name : '');
-            li.innerHTML = `${shortTime(r.revealed_at)} — <a href="${mapsLink}" target="_blank">map</a>${label ? ' · ' + label : ''}`;
+            li.innerHTML = `${shortTime(r.revealed_at)} — ${label ? label : ''} <a href="${mapsLink}" target="_blank">map</a>`;
             list.appendChild(li);
         });
 
