@@ -43,5 +43,6 @@ function tryAddColumn(table, colDef) {
 tryAddColumn('runner_locations', 'game_id TEXT');
 tryAddColumn('reveals', 'game_id TEXT');
 tryAddColumn('objectives', 'game_id TEXT');
+tryAddColumn('reveals', 'objective_name TEXT');
 
 module.exports = db;

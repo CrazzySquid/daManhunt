@@ -134,10 +134,28 @@ function sendReveal() {
   console.log('Revealed:', snapped, `(${ageMinutes} min old)`);
 }
 
+function sendObjectiveReveal(objectiveName, remainingCount) {
+  const latest = db.prepare('SELECT * FROM runner_locations WHERE game_id = ? ORDER BY timestamp DESC LIMIT 1').get(currentGameId);
+  if (!latest) return;
+
+  const snapped = snapToGrid(latest.lat, latest.lng);
+
+  db.prepare(`
+    INSERT INTO reveals (game_id, runner_id, revealed_at, lat, lng, accuracy, objective_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(currentGameId, latest.runner_id, Date.now(), snapped.lat, snapped.lng, latest.accuracy, objectiveName);
+
+  const mapsLink = `https://www.google.com/maps?q=${snapped.lat},${snapped.lng}`;
+  const message = remainingCount > 0
+    ? `📍 Runners made it to ${objectiveName}, only ${remainingCount} to go!\n${mapsLink}`
+    : `📍 Runners made it to ${objectiveName}!\n${mapsLink}`;
+
+  notifyHunters(message);
+  console.log('Objective reveal:', objectiveName, snapped);
+}
+
 function markObjectiveVisited(id) {
-  if (state !== 'active') {
-    return false;
-  }
+  if (state !== 'active') return false;
 
   const obj = objectives.find(o => o.id === id);
   if (!obj || obj.visited) return false;
@@ -147,10 +165,12 @@ function markObjectiveVisited(id) {
   console.log(`Objective visited: ${obj.name}`);
 
   const remaining = objectives.filter(x => !x.visited);
+  sendObjectiveReveal(obj.name, remaining.length);
+
   if (remaining.length === 1) {
     const last = remaining[0];
     notifyHunters(`🔥 FINALE! Only one objective left: ${last.name} — https://www.google.com/maps?q=${last.lat},${last.lng}`);
-  } else if (remaining.length === 0 && (state !== 'idle' && state !== 'ended')) {
+  } else if (remaining.length === 0) {
     endGame('runners', 'All objectives visited.');
   }
   return true;
@@ -201,7 +221,7 @@ function isGameRunning() {
 }
 
 function stopGame() {
-  if (state === 'idle' && state === 'ended') return false;
+  if (state === 'idle' || state === 'ended') return false;
   endGame('none', 'Manually stopped by admin.');
   return true;
 }

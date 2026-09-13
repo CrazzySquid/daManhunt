@@ -71,17 +71,17 @@ app.post('/api/ping', (req, res) => {
 app.get('/api/reveals/latest', (req, res) => {
   const latest = db.prepare('SELECT * FROM reveals WHERE game_id = ? ORDER BY revealed_at DESC LIMIT 1').get(getCurrentGameId());
   if (!latest) return res.status(404).json({ error: 'No reveals yet' });
-  const stations = nearestStations(latest.lat, latest.lng, 2);
+  const stations = latest.objective_name ? [] : nearestStations(latest.lat, latest.lng, 2);
   res.json({ ...latest, nearestStations: stations });
 });
 
 app.get('/api/reveals/history', (req, res) => {
   const all = db.prepare('SELECT * FROM reveals WHERE game_id = ? ORDER BY revealed_at DESC LIMIT 20').all(getCurrentGameId());
-  const withStations = all.map(r => ({
+  const withExtra = all.map(r => ({
     ...r,
-    nearestStations: nearestStations(r.lat, r.lng, 2)
+    nearestStations: r.objective_name ? [] : nearestStations(r.lat, r.lng, 2)
   }));
-  res.json(withStations);
+  res.json(withExtra);
 });
 
 app.get('/api/objectives', (req, res) => {
@@ -108,17 +108,4 @@ process.on('unhandledRejection', (err) => {
 });
 process.on('uncaughtException', (err) => {
   console.error('Uncaught exception (server stayed alive):', err);
-});
-
-
-// server.js — add temporarily, remove before sharing this deployment publicly long-term
-app.get('/api/debug/near-stephansdom', (req, res) => {
-  const rows = db.prepare(`
-    SELECT id, lat, lng, accuracy, timestamp, game_id
-    FROM runner_locations
-    WHERE lat BETWEEN 48.205 AND 48.212
-      AND lng BETWEEN 16.369 AND 16.378
-    ORDER BY timestamp DESC
-  `).all();
-  res.json(rows);
 });

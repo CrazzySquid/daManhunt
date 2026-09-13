@@ -21,7 +21,9 @@ function renderReveal() {
         html += `≈${dist}m ${dir} of you<br>`;
     }
 
-    if (reveal.nearestStations && reveal.nearestStations.length) {
+    if (reveal.objective_name) {
+        html += `Runners made it to <strong>${reveal.objective_name}</strong>!`;
+    } else if (reveal.nearestStations && reveal.nearestStations.length) {
         html += 'Nearest stations: ' + reveal.nearestStations.map(s => `${s.name} (${Math.round(s.distance)}m)`).join(', ');
     }
 
@@ -60,8 +62,10 @@ async function loadHistory() {
             const li = document.createElement('li');
             li.className = 'objectiveItem';
             const mapsLink = `https://www.google.com/maps?q=${r.lat},${r.lng}`;
-            const stationName = r.nearestStations && r.nearestStations[0] ? r.nearestStations[0].name : '';
-            li.innerHTML = `${shortTime(r.revealed_at)} — ${stationName ? stationName : ''} — <a href="${mapsLink}" target="_blank">map</a>`;
+            const label = r.objective_name
+                ? ` ${r.objective_name}`
+                : (r.nearestStations && r.nearestStations[0] ? r.nearestStations[0].name : '');
+            li.innerHTML = `${shortTime(r.revealed_at)} — <a href="${mapsLink}" target="_blank">map</a>${label ? ' · ' + label : ''}`;
             list.appendChild(li);
         });
 
