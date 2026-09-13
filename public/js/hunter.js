@@ -25,7 +25,7 @@ function renderReveal() {
     if (reveal.objective_name) {
         html += `Runners made it to <strong>${reveal.objective_name}</strong>!`;
     } else if (reveal.nearestStations && reveal.nearestStations.length) {
-        html += 'Nearest stations: ' + reveal.nearestStations.map(s => `${s.name} (${Math.round(s.distance)}m)`).join(', ');
+        html += 'Nearest stations: ' + reveal.nearestStations.map(s => `${s.name}`).join(', ');
     }
 
     document.getElementById('revealInfo').innerHTML = html;
@@ -68,7 +68,7 @@ async function loadHistory() {
                 ? ` ${r.objective_name}`
                 : (r.nearestStations && r.nearestStations[0] ? r.nearestStations[0].name : '');
             const pingTime = r.ping_timestamp || r.revealed_at;
-            li.innerHTML = `${shortTime(pingTime)} — <a href="${mapsLink}" target="_blank">map</a>${label ? ' · ' + label : ''}`;
+            li.innerHTML = `${shortTime(pingTime)} — ${label ? label : ''} <a href="${mapsLink}" target="_blank">map</a>`;
             list.appendChild(li);
         });
 
