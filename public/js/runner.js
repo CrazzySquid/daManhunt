@@ -135,7 +135,7 @@ async function loadObjectives() {
         li.className = 'objectiveItem';
 
         const stationText = o.nearestStations && o.nearestStations.length
-            ? o.nearestStations.map(s => s.name).join(', ')
+            ? o.nearestStations.map(s => `${s.type ? s.type + ': ' : ''}${s.name}`).join(', ')
             : '';
 
         li.innerHTML = `<div>${o.name}<br><small style="opacity:0.7;">${stationText}</small></div>`;

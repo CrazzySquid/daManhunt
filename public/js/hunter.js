@@ -12,7 +12,8 @@ function renderReveal() {
     if (!lastRevealData) return;
     const reveal = lastRevealData;
     const mapsLink = `https://www.google.com/maps?q=${reveal.lat},${reveal.lng}`;
-    let html = `<strong>Revealed at ${shortTime(reveal.revealed_at)}</strong><br>(${relativeTime(reveal.revealed_at)})<br><br>`;
+    const pingTime = reveal.ping_timestamp || reveal.revealed_at;
+    let html = `<strong>Location from ${shortTime(pingTime)}</strong><br>(${relativeTime(pingTime)})<br><br>`;
     html += `<a href="${mapsLink}" target="_blank">Open in Google Maps</a><br>`;
 
     if (hunterLat !== null) {
@@ -66,7 +67,8 @@ async function loadHistory() {
             const label = r.objective_name
                 ? ` ${r.objective_name}`
                 : (r.nearestStations && r.nearestStations[0] ? r.nearestStations[0].name : '');
-            li.innerHTML = `${shortTime(r.revealed_at)} — ${label ? label : ''} <a href="${mapsLink}" target="_blank">map</a>`;
+            const pingTime = r.ping_timestamp || r.revealed_at;
+            li.innerHTML = `${shortTime(pingTime)} — <a href="${mapsLink}" target="_blank">map</a>${label ? ' · ' + label : ''}`;
             list.appendChild(li);
         });
 

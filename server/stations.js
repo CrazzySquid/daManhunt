@@ -35,4 +35,32 @@ function nearestStations(lat, lng, count = 2) {
     .slice(0, count);
 }
 
-module.exports = { nearestStations };
+const rawTram = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/tramStations.json')));
+
+const seenTramNames = new Set();
+const tramStations = rawTram.features
+  .filter(f => f.properties.name)
+  .map(f => ({ name: f.properties.name, lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] }))
+  .filter(s => {
+    if (seenTramNames.has(s.name)) return false;
+    seenTramNames.add(s.name);
+    return true;
+  });
+
+function nearestOfList(list, lat, lng, count = 1) {
+  return list
+    .map(s => ({ ...s, distance: haversineMeters(lat, lng, s.lat, s.lng) }))
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, count);
+}
+
+function nearestMixed(lat, lng) {
+  const nearestU = nearestOfList(stations, lat, lng, 1)[0];
+  const nearestTram = nearestOfList(tramStations, lat, lng, 1)[0];
+  const result = [];
+  if (nearestU) result.push({ ...nearestU, type: 'U' });
+  if (nearestTram) result.push({ ...nearestTram, type: 'Tram' });
+  return result;
+}
+
+module.exports = { nearestStations, nearestMixed };

@@ -44,5 +44,6 @@ tryAddColumn('runner_locations', 'game_id TEXT');
 tryAddColumn('reveals', 'game_id TEXT');
 tryAddColumn('objectives', 'game_id TEXT');
 tryAddColumn('reveals', 'objective_name TEXT');
+tryAddColumn('reveals', 'ping_timestamp INTEGER');
 
 module.exports = db;

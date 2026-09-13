@@ -6,12 +6,12 @@ const path = require('path');
 
 const db = require('./db');
 const { startGame, getStatus, isGameRunning, stopGame } = require('./game');
-const { nearestStations } = require('./stations');
 const { pickRandomObjectives } = require('./objectives');
 const { getCurrentGameId } = require('./game');
 const { markObjectiveVisited } = require('./game');
 const presets = require('./data/presets');
 const { requestCatch, confirmCatch } = require('./game');
+const { nearestStations, nearestMixed } = require('./stations');
 
 
 const app = express();
@@ -88,7 +88,7 @@ app.get('/api/objectives', (req, res) => {
   const objectives = db.prepare('SELECT * FROM objectives WHERE game_id = ?').all(getCurrentGameId());
   const withStations = objectives.map(o => ({
     ...o,
-    nearestStations: nearestStations(o.lat, o.lng, 2)
+    nearestStations: nearestMixed(o.lat, o.lng)
   }));
   res.json(withStations);
 });

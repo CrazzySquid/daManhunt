@@ -135,9 +135,9 @@ function attemptReveal() {
   const snapped = snapToGrid(closestPing.lat, closestPing.lng);
 
   db.prepare(`
-    INSERT INTO reveals (game_id, runner_id, revealed_at, lat, lng, accuracy)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(currentGameId, closestPing.runner_id, Date.now(), snapped.lat, snapped.lng, closestPing.accuracy);
+  INSERT INTO reveals (game_id, runner_id, revealed_at, lat, lng, accuracy, ping_timestamp)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(currentGameId, closestPing.runner_id, Date.now(), snapped.lat, snapped.lng, closestPing.accuracy, closestPing.timestamp);
 
   const stations = nearestStations(snapped.lat, snapped.lng, 2);
   const mapsLink = `https://www.google.com/maps?q=${snapped.lat},${snapped.lng}`;
@@ -154,9 +154,9 @@ function sendObjectiveReveal(objectiveName, remainingCount, finaleInfo = null) {
   const snapped = snapToGrid(latest.lat, latest.lng);
 
   db.prepare(`
-    INSERT INTO reveals (game_id, runner_id, revealed_at, lat, lng, accuracy, objective_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(currentGameId, latest.runner_id, Date.now(), snapped.lat, snapped.lng, latest.accuracy, objectiveName);
+    INSERT INTO reveals (game_id, runner_id, revealed_at, lat, lng, accuracy, objective_name, ping_timestamp)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(currentGameId, latest.runner_id, Date.now(), snapped.lat, snapped.lng, latest.accuracy, objectiveName, latest.timestamp);
 
   const mapsLink = `https://www.google.com/maps?q=${snapped.lat},${snapped.lng}`;
   let message;
