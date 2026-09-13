@@ -7,6 +7,7 @@ const { pickRandomObjectives } = require('./objectives');
 const GRID_SIZE_METERS = 50;           // fixed, easy to tweak here
 const OBJECTIVE_RADIUS_METERS = 50;    // fixed, "how close counts as arrived"
 const LOCATION_DELAY_MS = 1 * 60 * 1000; // 1 minute, fixed
+const STALE_PING_THRESHOLD_MINUTES = 5; // configurable: pings older than this are treated as "not fresh enough" and reveal waits
 
 let state = 'idle'; // 'idle' | 'headstart' | 'active' | 'ended'
 let headStartEnd = null;
@@ -18,6 +19,7 @@ let objectives = [];
 let winner = null;
 let pendingConfig = null;
 let catchPending = false;
+let revealPending = false;
 
 function haversineMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000;
@@ -81,7 +83,7 @@ function tick() {
 
       notifyHunters(`🎯 Head start over! The hunt is on. Round ends at ${new Date(roundEnd).toLocaleTimeString()}.`);
       console.log('Head start ended, round active until', new Date(roundEnd).toLocaleTimeString());
-      sendReveal();
+      revealPending = true;
     }
     return;
   }
@@ -93,15 +95,19 @@ function tick() {
     return;
   }
 
-  if (currentRevealIndex < revealTimestamps.length && now >= revealTimestamps[currentRevealIndex]) {
-    sendReveal();
+  while (currentRevealIndex < revealTimestamps.length && now >= revealTimestamps[currentRevealIndex]) {
+    revealPending = true;
     currentRevealIndex++;
+  }
+
+  if (revealPending) {
+    attemptReveal();
   }
 
   checkObjectiveArrivals();
 }
 
-function sendReveal() {
+function attemptReveal() {
   const targetTime = Date.now() - LOCATION_DELAY_MS;
 
   const closestPing = db.prepare(`
@@ -112,29 +118,36 @@ function sendReveal() {
   `).get(currentGameId, targetTime);
 
   if (!closestPing) {
-    console.log('No location data available yet for this reveal.');
+    console.log('Reveal due, but no location data yet — will retry.');
+    revealPending = true;
     return;
   }
+
+  const ageMinutes = (Date.now() - closestPing.timestamp) / 60000;
+  if (ageMinutes > STALE_PING_THRESHOLD_MINUTES) {
+    console.log(`Reveal due, but closest ping is ${Math.round(ageMinutes)} min old — will retry.`);
+    revealPending = true;
+    return;
+  }
+
+  revealPending = false;
 
   const snapped = snapToGrid(closestPing.lat, closestPing.lng);
 
   db.prepare(`
-   INSERT INTO reveals (game_id, runner_id, revealed_at, lat, lng, accuracy)
+    INSERT INTO reveals (game_id, runner_id, revealed_at, lat, lng, accuracy)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(currentGameId, closestPing.runner_id, Date.now(), snapped.lat, snapped.lng, closestPing.accuracy);
 
   const stations = nearestStations(snapped.lat, snapped.lng, 2);
   const mapsLink = `https://www.google.com/maps?q=${snapped.lat},${snapped.lng}`;
   const stationText = stations.map(s => `${s.name} (${Math.round(s.distance)}m)`).join(', ');
-  const ageMinutes = Math.round((Date.now() - closestPing.timestamp) / 60000);
 
-  const message = `📍 New location revealed!\n${mapsLink}\nNearest stations: ${stationText}`;
-  notifyHunters(message);
-
-  console.log('Revealed:', snapped, `(${ageMinutes} min old)`);
+  notifyHunters(`📍 New location revealed!\n${mapsLink}\nNearest stations: ${stationText}`);
+  console.log('Revealed:', snapped, `(${Math.round(ageMinutes)} min old)`);
 }
 
-function sendObjectiveReveal(objectiveName, remainingCount) {
+function sendObjectiveReveal(objectiveName, remainingCount, finaleInfo = null) {
   const latest = db.prepare('SELECT * FROM runner_locations WHERE game_id = ? ORDER BY timestamp DESC LIMIT 1').get(currentGameId);
   if (!latest) return;
 
@@ -146,9 +159,14 @@ function sendObjectiveReveal(objectiveName, remainingCount) {
   `).run(currentGameId, latest.runner_id, Date.now(), snapped.lat, snapped.lng, latest.accuracy, objectiveName);
 
   const mapsLink = `https://www.google.com/maps?q=${snapped.lat},${snapped.lng}`;
-  const message = remainingCount > 0
-    ? `📍 Runners made it to ${objectiveName}, only ${remainingCount} to go!\n${mapsLink}`
-    : `📍 Runners made it to ${objectiveName}!\n${mapsLink}`;
+  let message;
+  if (finaleInfo) {
+    message = `🎯 Runners made it to ${objectiveName}! Only 1 left.\n${mapsLink}\n\n🔥 FINALE location: ${finaleInfo.name} — https://www.google.com/maps?q=${finaleInfo.lat},${finaleInfo.lng}`;
+  } else if (remainingCount > 0) {
+    message = `📍 Runners made it to ${objectiveName}, only ${remainingCount} to go!\n${mapsLink}`;
+  } else {
+    message = `📍 Runners made it to ${objectiveName}!\n${mapsLink}`;
+  }
 
   notifyHunters(message);
   console.log('Objective reveal:', objectiveName, snapped);
@@ -165,12 +183,14 @@ function markObjectiveVisited(id) {
   console.log(`Objective visited: ${obj.name}`);
 
   const remaining = objectives.filter(x => !x.visited);
-  sendObjectiveReveal(obj.name, remaining.length);
 
   if (remaining.length === 1) {
-    const last = remaining[0];
-    notifyHunters(`🔥 FINALE! Only one objective left: ${last.name} — https://www.google.com/maps?q=${last.lat},${last.lng}`);
-  } else if (remaining.length === 0) {
+    sendObjectiveReveal(obj.name, remaining.length, remaining[0]);
+  } else {
+    sendObjectiveReveal(obj.name, remaining.length);
+  }
+
+  if (remaining.length === 0) {
     endGame('runners', 'All objectives visited.');
   }
   return true;
