@@ -78,7 +78,11 @@ function tick() {
     if (now >= headStartEnd) {
       state = 'active';
       roundEnd = headStartEnd + pendingConfig.roundDurationMinutes * 60 * 1000;
-      revealTimestamps = pendingConfig.revealIntervals.map(m => headStartEnd + m * 60 * 1000);
+      let cumulative = 0;
+      revealTimestamps = pendingConfig.revealIntervals.map(m => {
+        cumulative += m;
+        return headStartEnd + cumulative * 60 * 1000;
+      });
       currentRevealIndex = 0;
 
       notifyHunters(`🎯 Head start over! The hunt is on. Round ends at ${new Date(roundEnd).toLocaleTimeString()}.`);
@@ -249,7 +253,7 @@ function stopGame() {
 function getStatus() {
   const unvisited = objectives.filter(o => !o.visited);
   const finaleObjective = unvisited.length === 1 ? unvisited[0] : null;
-  return { state, headStartEnd, roundEnd, winner, finaleObjective, catchPending };
+  return { state, headStartEnd, roundEnd, winner, finaleObjective, catchPending, gameId: currentGameId };
 }
 
 function getCurrentGameId() { return currentGameId; }

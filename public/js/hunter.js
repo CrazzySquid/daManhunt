@@ -2,6 +2,7 @@ let hunterLat = null;
 let hunterLng = null;
 let lastRevealId = null;
 let lastRevealData = null;
+let knownGameId = null;
 
 navigator.geolocation.watchPosition(pos => {
     hunterLat = pos.coords.latitude;
@@ -90,6 +91,15 @@ async function refreshGameState() {
         const now = Date.now();
         const stateEl = document.getElementById('gameStateText');
 
+        if (status.gameId !== knownGameId) {
+            knownGameId = status.gameId;
+            lastRevealId = null;
+            lastRevealData = null;
+            document.getElementById('revealInfo').textContent = 'Waiting for first reveal...';
+            document.getElementById('historyList').innerHTML = '';
+            document.getElementById('historyCard').style.display = 'none';
+        }
+
         if (status.state === 'idle') {
             stateEl.textContent = 'No game running';
         } else if (status.state === 'headstart') {
@@ -103,6 +113,9 @@ async function refreshGameState() {
         }
 
         const finaleCard = document.getElementById('finaleCard');
+        const catchBtnCard = document.getElementById('catchBtnCard');
+        const historyCard = document.getElementById('historyCard');
+        const revealCard = document.getElementById('revealCard');
         if (status.finaleObjective) {
             const o = status.finaleObjective;
             const mapsLink = `https://www.google.com/maps?q=${o.lat},${o.lng}`;
@@ -114,7 +127,6 @@ async function refreshGameState() {
         }
 
         catchBtnCard.style.display = status.state === 'active' ? 'block' : 'none';
-
     } catch (err) {
         console.error('Game status error:', err);
     }
