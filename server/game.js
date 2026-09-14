@@ -253,7 +253,12 @@ function stopGame() {
 function getStatus() {
   const unvisited = objectives.filter(o => !o.visited);
   const finaleObjective = unvisited.length === 1 ? unvisited[0] : null;
-  return { state, headStartEnd, roundEnd, winner, finaleObjective, catchPending, gameId: currentGameId };
+  return {
+    state, headStartEnd, roundEnd, winner, finaleObjective, catchPending,
+    gameId: currentGameId,
+    revealTimestamps,
+    currentRevealIndex
+  };
 }
 
 function getCurrentGameId() { return currentGameId; }

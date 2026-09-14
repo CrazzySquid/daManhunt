@@ -91,6 +91,11 @@ async function refreshGameState() {
         const now = Date.now();
         const stateEl = document.getElementById('gameStateText');
 
+        if (status.state === 'active') {
+            const scheduleEl = document.getElementById('scheduleInfo');
+            if (scheduleEl) scheduleEl.innerHTML = renderScheduleHTML(status);
+        }
+
         if (status.gameId !== knownGameId) {
             knownGameId = status.gameId;
             lastRevealId = null;
@@ -98,6 +103,7 @@ async function refreshGameState() {
             document.getElementById('revealInfo').textContent = 'Waiting for first reveal...';
             document.getElementById('historyList').innerHTML = '';
             document.getElementById('historyCard').style.display = 'none';
+            document.getElementById('scheduleInfo').innerHTML = '';
         }
 
         if (status.state === 'idle') {
@@ -106,16 +112,17 @@ async function refreshGameState() {
             const remaining = Math.max(0, Math.round((status.headStartEnd - now) / 1000));
             stateEl.textContent = `Head start — ${formatTime(remaining)} remaining`;
         } else if (status.state === 'active') {
-            const remaining = Math.max(0, Math.round((status.roundEnd - now) / 1000));
-            stateEl.textContent = `Round active — ${formatTime(remaining)} remaining`;
+            const elapsedSec = Math.max(0, Math.round((now - status.headStartEnd) / 1000));
+            const totalSec = Math.max(0, Math.round((status.roundEnd - status.headStartEnd) / 1000));
+            const remainingSec = Math.max(0, Math.round((status.roundEnd - now) / 1000));
+
+            stateEl.textContent = `Round active — ${formatTime(elapsedSec)}/${Math.round(totalSec / 60)}min`;
         } else if (status.state === 'ended') {
             stateEl.textContent = `Game over — ${status.winner} win!`;
         }
 
         const finaleCard = document.getElementById('finaleCard');
         const catchBtnCard = document.getElementById('catchBtnCard');
-        const historyCard = document.getElementById('historyCard');
-        const revealCard = document.getElementById('revealCard');
         if (status.finaleObjective) {
             const o = status.finaleObjective;
             const mapsLink = `https://www.google.com/maps?q=${o.lat},${o.lng}`;

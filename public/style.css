@@ -247,3 +247,15 @@ body {
 #catchBtn {
     font-size: var(--font);
 }
+
+.scheduleScroll {
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.scheduleScroll.collapsed {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}

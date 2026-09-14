@@ -3,9 +3,8 @@ const pingNote = document.getElementById('pingNote');
 const wakeNote = document.getElementById('wakeNote');
 let lastPingTime = null;
 let currentState = 'idle';
-
-// ---- Wake lock ----
 let wakeLock = null;
+let knownGameId = null;
 
 async function requestWakeLock() {
     try {
@@ -77,6 +76,16 @@ async function refreshGameState() {
         currentState = status.state;
         const now = Date.now();
         const stateEl = document.getElementById('gameStateText');
+
+        if (status.state === 'active') {
+            const scheduleEl = document.getElementById('scheduleInfo');
+            if (scheduleEl) scheduleEl.innerHTML = renderScheduleHTML(status);
+        }
+
+        if (status.gameId !== knownGameId) {
+            knownGameId = status.gameId;
+            document.getElementById('scheduleInfo').innerHTML = '';
+        }
 
         if (status.state === 'idle') {
             stateEl.textContent = 'No game running';
